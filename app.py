@@ -5,6 +5,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import streamlit as st
+from pathlib import Path
 
 # ── Config ────────────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -22,15 +23,16 @@ C = {
 MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
 
 # ── Data ──────────────────────────────────────────────────────────────────────
+
+
+
 @st.cache_data
 def load_data() -> pd.DataFrame:
-    path = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),
-        "Deel Marketing Analytics Challenge - raw_data.csv",
-    )
+    path = Path(__file__).parent / "Deel Marketing Analytics Challenge - raw_data.csv"
     df = pd.read_csv(path, sep=";", encoding="utf-8")
     df.columns = df.columns.str.strip().str.replace("\xa0", " ")
     df["Reporting Date"] = pd.to_datetime(df["Reporting Date"], dayfirst=True)
+
 
     # COST
     cost = (
