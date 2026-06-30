@@ -475,8 +475,8 @@ def p3_paid(df):
     )
     fig.update_traces(line_width=2)
     fig.add_hline(
-        y=50000, line_dash="dot", line_color="#9ca3af",
-        annotation_text="Benchmark $50K", annotation_position="bottom right",
+        y=107000, line_dash="dot", line_color="#9ca3af",
+        annotation_text="Benchmark $107K", annotation_position="bottom right",
         annotation_font_size=11,
     )
     theme(fig, h=310)
@@ -516,7 +516,7 @@ def p3_paid(df):
         st.plotly_chart(fig, use_container_width=True)
 
     with r:
-        section("CPA by Program  (green = below $50K)")
+        section("CPA by Program  (green = below $107K)")
         cb = (
             paid.groupby("Marketing Program")
             .agg(cost=("Cost", "sum"), won=("# Opportunities Won", "sum"))
@@ -530,7 +530,7 @@ def p3_paid(df):
         y=cb["Marketing Program"],
         orientation="h",
         marker_color=[
-            C["green"] if v <= 50000 else C["red"]
+            C["green"] if v <= 107000 else C["red"]
             for v in cb["CPA"]
         ],
         text=[f"${v:,.0f}" for v in cb["CPA"]],
@@ -538,8 +538,8 @@ def p3_paid(df):
     )
 )
         fig.add_vline(
-            x=50000, line_dash="dot", line_color="#9ca3af",
-            annotation_text="$50K", annotation_position="top",
+            x=107000, line_dash="dot", line_color="#9ca3af",
+            annotation_text="$107K", annotation_position="top",
         )
         theme(fig, h=360, legend=False)
         st.plotly_chart(fig, use_container_width=True)
