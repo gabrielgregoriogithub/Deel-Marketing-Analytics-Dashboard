@@ -34,38 +34,8 @@ def load_data() -> pd.DataFrame:
     df["Reporting Date"] = pd.to_datetime(df["Reporting Date"], dayfirst=True)
 
 
-    # COST
-    cost = (
-    df["$ Cost"]
-    .astype(str)
-    .str.replace("$", "", regex=False)
-    .str.replace("\xa0", "", regex=False)
-    .str.strip()
-    )
-
-
-    mask_dot = cost.str.contains(r"\.") & ~cost.str.contains(",")
-
-    cost.loc[mask_dot] = cost.loc[mask_dot].str.replace(".", "", regex=False)
-
-    # caso decimal: 160,756
-    mask_comma = cost.str.contains(",") & ~cost.str.contains(r"\.")
-
-    cost.loc[mask_comma] = cost.loc[mask_comma].str.replace(",", ".", regex=False)
-
-    df["Cost"] = pd.to_numeric(cost, errors="coerce")
-
-    cost_sim = (
-        df["$ Cost"]
-        .astype(str)
-        .str.replace("$", "", regex=False)
-        .str.replace("\xa0", "", regex=False)
-        .str.strip()
-    )
-    mask_eu = cost_sim.str.count(r"\.") > 1
-    cost_sim.loc[mask_eu] = cost_sim.loc[mask_eu].str.replace(".", "", regex=False)
-    cost_sim = cost_sim.str.replace(",", "", regex=False)
-    df["Cost_sim"] = pd.to_numeric(cost_sim, errors="coerce").fillna(0)
+    # Cost: strip $ and thousands commas (US format: $160,756 → 160756)
+    df["Cost"] = pd.to_numeric(df["$ Cost"].str.replace(r"[$,]", "", regex=True), errors="coerce").fillna(0)
 
     for c in [
         "# Prospects", "# Marketing Qualified Prospects", "# Demo Prospects",
@@ -137,7 +107,7 @@ def p1_executive(df):
     e2e = tw / tp * 100 if tp else 0
 
     c1, c2, c3, c4 = st.columns(4)
-    kpi(c1, "Total Invested",    f"${tc/1e3:.1f}K",  color=C["amber"])
+    kpi(c1, "Total Invested",    f"${tc/1e6:.0f}M",  color=C["amber"])
     kpi(c2, "Won Opps.",         f"{tw:,.0f}",       color=C["green"])
     kpi(c3, "Avg. Global CPA",   f"${cpa:,.0f}",     color=C["blue"])
     kpi(c4, "E2E Rate",          f"{e2e:.2f}%",      color=C["purple"])
@@ -505,8 +475,8 @@ def p3_paid(df):
     )
     fig.update_traces(line_width=2)
     fig.add_hline(
-        y=1056, line_dash="dot", line_color="#9ca3af",
-        annotation_text="Benchmark $1056", annotation_position="bottom right",
+        y=50000, line_dash="dot", line_color="#9ca3af",
+        annotation_text="Benchmark $50K", annotation_position="bottom right",
         annotation_font_size=11,
     )
     theme(fig, h=310)
@@ -546,7 +516,7 @@ def p3_paid(df):
         st.plotly_chart(fig, use_container_width=True)
 
     with r:
-        section("CPA by Program  (green = below $1K)")
+        section("CPA by Program  (green = below $50K)")
         cb = (
             paid.groupby("Marketing Program")
             .agg(cost=("Cost", "sum"), won=("# Opportunities Won", "sum"))
@@ -560,16 +530,16 @@ def p3_paid(df):
         y=cb["Marketing Program"],
         orientation="h",
         marker_color=[
-            C["green"] if v <= 1000 else C["red"]
+            C["green"] if v <= 50000 else C["red"]
             for v in cb["CPA"]
         ],
         text=[f"${v:,.0f}" for v in cb["CPA"]],
-        textposition="auto",   # <- em vez de outside
+        textposition="auto",
     )
 )
         fig.add_vline(
-            x=1000, line_dash="dot", line_color="#9ca3af",
-            annotation_text="$1.000", annotation_position="top",
+            x=50000, line_dash="dot", line_color="#9ca3af",
+            annotation_text="$50K", annotation_position="top",
         )
         theme(fig, h=360, legend=False)
         st.plotly_chart(fig, use_container_width=True)
@@ -768,10 +738,10 @@ def p5_trends(df):
             color_discrete_sequence=[C["blue"]],
         )
         fig.update_traces(line_width=2)
-        fig.add_hrect(y0=0,  y1=35,   fillcolor=C["green"], opacity=0.07, line_width=0,
+        fig.add_hrect(y0=0,     y1=35000,  fillcolor=C["green"], opacity=0.07, line_width=0,
                       annotation_text="Efficient zone", annotation_position="bottom right",
                       annotation_font_size=10)
-        fig.add_hrect(y0=35, y1=99, fillcolor=C["red"],   opacity=0.04, line_width=0,
+        fig.add_hrect(y0=35000, y1=100000, fillcolor=C["red"],   opacity=0.04, line_width=0,
                       annotation_text="Alert zone",     annotation_position="top right",
                       annotation_font_size=10)
         theme(fig, h=230, legend=False)
@@ -810,7 +780,7 @@ def p6_simulator(df):
     hist = (
         paid.groupby("Marketing Program")
         .agg(
-            cost_sim=("Cost_sim", "sum"),
+            cost_sim=("Cost", "sum"),
             won=("# Opportunities Won", "sum")
         )
         .reset_index()
@@ -835,7 +805,7 @@ def p6_simulator(df):
         f"""<div style="background:{C['navy']};color:white;padding:14px 20px;
         border-radius:8px;margin-bottom:18px">
         <b>Budget Reallocation Simulator</b> — Adjust the sliders to redistribute the
-        <b>$421.5M</b> budget across paid programs and see the projected
+        <b>${total_budget/1e6:.0f}M</b> budget across paid programs and see the projected
         impact on won opportunities (based on each program's historical CPA).
         </div>""",
         unsafe_allow_html=True,
@@ -845,7 +815,7 @@ def p6_simulator(df):
     new_budgets = {}
 
     with l:
-        section("Budget Allocation by Program ($K)")
+        section("Budget Allocation by Program ($M)")
         for _, row in hist.iterrows():
             prog  = row["Marketing Program"]
             cpa   = row["CPA"]
@@ -853,10 +823,10 @@ def p6_simulator(df):
             val_m = st.slider(
                 f"{prog}  |  Hist. CPA: ${cpa:,.0f}",
                 min_value=0.0,
-                max_value=421.5,
+                max_value=float(round(total_budget / 1e6)),
                 value=cur_m,
                 step=0.5,
-                format="$%.1fK",
+                format="$%.1fM",
                 key=f"sim_{prog}",
             )
             new_budgets[prog] = (val_m * 1e6, cpa)
@@ -886,8 +856,8 @@ def p6_simulator(df):
         kpi(
             c1,
             "Total Budget",
-            f"${new_total/1e6:.1f}K",
-            sub=f"{'↑' if delta_bud >= 0 else '↓'} ${abs(delta_bud)/1e6:.1f}K",
+            f"${new_total/1e6:.1f}M",
+            sub=f"{'↑' if delta_bud >= 0 else '↓'} ${abs(delta_bud)/1e6:.1f}M",
             color=C["amber"]
         )
 
@@ -968,7 +938,7 @@ def p6_simulator(df):
 
         theme(fig, h=270, legend=False)
 
-        fig.update_xaxes(title_text="Cumulative Investment ($K)")
+        fig.update_xaxes(title_text="Cumulative Investment ($M)")
         fig.update_yaxes(title_text="Cumulative Won")
 
         st.plotly_chart(fig, use_container_width=True)
@@ -1048,7 +1018,7 @@ def main():
         </div>
         <div style="text-align:right;color:#94a3b8;font-size:12px">
             Total Investment<br>
-            <span style="color:white;font-size:22px;font-weight:700">${tc/1e3:.1f}K</span>
+            <span style="color:white;font-size:22px;font-weight:700">${tc/1e6:.0f}M</span>
         </div>
         </div>""",
         unsafe_allow_html=True,
